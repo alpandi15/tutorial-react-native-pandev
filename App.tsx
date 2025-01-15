@@ -1,118 +1,169 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
 import React from 'react';
-import type {PropsWithChildren} from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
+  Dimensions,
   StatusBar,
+  StatusBarStyle,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
 } from 'react-native';
+import Animated, { interpolate, runOnJS, useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle, useDerivedValue, useScrollViewOffset } from 'react-native-reanimated';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+const {width} = Dimensions.get('window');
+const IMAGE_HEIGHT = 320;
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+function Page(): React.JSX.Element {
+  const [barStyle, setBarStyle] = React.useState<StatusBarStyle | null | undefined>('light-content');
+  const ref = useAnimatedRef<Animated.ScrollView>();
+  const scrollOffset = useScrollViewOffset(ref);
+  const insets = useSafeAreaInsets();
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+  const imageAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          scale: interpolate(
+            scrollOffset.value,
+            [0, IMAGE_HEIGHT, IMAGE_HEIGHT * 2],
+            [1, 1.5, 2],
+            'clamp'
+          ),
+        },
+      ],
+    };
+  });
+
+  const contentAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      borderTopLeftRadius: interpolate(
+        scrollOffset.value,
+        [0, IMAGE_HEIGHT - 32],
+        [32, 0],
+        'clamp'
+      ),
+      borderTopRightRadius: interpolate(
+        scrollOffset.value,
+        [0, IMAGE_HEIGHT - 32],
+        [32, 0],
+        'clamp'
+      ),
+    };
+  });
+
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(
+        scrollOffset.value,
+        [0, IMAGE_HEIGHT],
+        [0, 1],
+        'clamp'
+      ),
+    };
+  });
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollOffset.value = event?.contentOffset?.y;
+    },
+  });
+
+  // Calculate barStyle based on scrollOffset
+  useDerivedValue(() => {
+    const newBarStyle = scrollOffset.value > IMAGE_HEIGHT / 2 ? 'dark-content' : 'light-content';
+    runOnJS(setBarStyle)(newBarStyle);
+  });
+
   return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
+    <View style={styles.container}>
+      <StatusBar translucent backgroundColor="transparent" barStyle={barStyle} />
+      <Animated.View style={[
+        headerAnimatedStyle,
+        styles.header,
+        {
+          paddingTop: insets.top,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}>
+        <View style={styles.headerContent}>
+          <Text>Header</Text>
+        </View>
+      </Animated.View>
+      <Animated.Image
+        source={{uri: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'}}
+        style={[styles.image, imageAnimatedStyle]}
+        resizeMode="cover"
+      />
+      <Animated.ScrollView
+        ref={ref}
+        scrollEventThrottle={16}
+        style={styles.scroll}
+        onScroll={scrollHandler}
+      >
+        <Animated.View style={[styles.content, contentAnimatedStyle]}>
+          <View>
+            <Text style={styles.title}>Sepatu Pria Warna Merah</Text>
+          </View>
+        </Animated.View>
+      </Animated.ScrollView>
     </View>
   );
 }
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
-
-  return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  container: {
+    flex: 1,
+    backgroundColor: 'white',
+    position: 'relative',
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  image: {
+    width,
+    height: IMAGE_HEIGHT,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    overflow: 'hidden',
   },
-  sectionDescription: {
-    marginTop: 8,
+  content: {
+    height: 1500,
+    backgroundColor: '#F5F5F5',
+    paddingVertical: 16,
+  },
+  title: {
+    fontWeight: 700,
     fontSize: 18,
-    fontWeight: '400',
+    textAlign: 'center',
   },
-  highlight: {
-    fontWeight: '700',
+  scroll: {
+    backgroundColor: 'transparent',
+    marginTop: -50,
+    paddingTop: IMAGE_HEIGHT,
+  },
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    // height: 60,
+    zIndex: 999,
+  },
+  headerContent: {
+    height: 45,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
+
+const App = () => {
+  return (
+    <SafeAreaProvider>
+      <Page />
+    </SafeAreaProvider>
+  );
+};
 
 export default App;
